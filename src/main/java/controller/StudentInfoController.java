@@ -60,7 +60,7 @@ public class StudentInfoController {
     @RequestMapping("/getMyInfo")//请求路径（ajax接口）
     @ResponseBody
     public String getStudentInfo(HttpSession session){
-        //String studentId = (String) session.getAttribute("studentId");
+        //String studentId = (String) session.getAttribute("user");
         String studentId = "2220172361";
         StudentInfo student = studentInfoService.getById(studentId);
         return new RestResult()
@@ -72,7 +72,7 @@ public class StudentInfoController {
     @RequestMapping("/getMyResumes")
     @ResponseBody
     public String getStudentResumes(HttpSession session){
-        //String studentId = (String) session.getAttribute("studentId");
+//        String studentId = (String) session.getAttribute("user");
         String studentId = "2220172361";
         //存放查询结果的list
         List<ResumeInfo> resumeInfos;
@@ -90,15 +90,15 @@ public class StudentInfoController {
     @RequestMapping("/uploadResume")
     @ResponseBody
     public String uploadResume(@RequestParam("file") MultipartFile file, HttpServletRequest request){
-        //String studentId = (String) request.getSession().getAttribute("studentId");
-        String studentId = "2220172361";
+        String studentId = (String) request.getSession().getAttribute("user");
+//        String studentId = "2220172361";
         //String resumeName = (String) request.getParameter("resumeName");
-        String resumeName = "myResume.pdf";
+        String resumeName = "myResume";
         //传输简历pdf文件
+        //设置文件存储路径
+        String storagePath = request.getRealPath("/uploads");
         //判断文件是否为空
         if(!file.isEmpty()){
-            //设置文件存储路径
-            String storagePath = "D:\\ResumesUpload";
             try{
                 file.transferTo(new File(storagePath+ File.separator+resumeName));//把文件写入目标文件地址
             }catch (Exception e){
@@ -111,14 +111,15 @@ public class StudentInfoController {
         resumeInfo.setResumeName(resumeName);
         resumeInfo.setResumeStatus(0);//unknow
         resumeInfo.setStudentId(studentId);
+        resumeInfo.setUrl(storagePath+"/"+resumeName+".pdf");
         resumeInfoService.save(resumeInfo);
         return new RestResult().setCode(ResultCode.SUCCESS).toString();
     }
     @RequestMapping("/deleteResume")
     @ResponseBody
     public String deleteResume(HttpSession session, @RequestBody(required = true)Map<String,Object> map){
-        //String studentId = (String) session.getAttribute("studentId");
-        String studentId = "2220172361";
+        String studentId = (String) session.getAttribute("user");
+//        String studentId = "2220172361";
         String resumeId = (String) map.get("resumeId");
         ResumeInfo resumeInfo = resumeInfoService.getById(resumeId);
         resumeInfo.setResumeStatus(-1);
@@ -128,8 +129,8 @@ public class StudentInfoController {
     @RequestMapping("/getJobs")
     @ResponseBody
     public String getJobs(HttpSession session, @RequestBody GetJobsRequestBody getJobsRequestBody){
-        //String studentId = (String) session.getAttribute("studentId");
-        String studentId = "2220172361";
+        String studentId = (String) session.getAttribute("user");
+//        String studentId = "2220172361";
         String companyName = getJobsRequestBody.getCompanyName();
         String jobName = getJobsRequestBody.getJobName();
         String jobType = getJobsRequestBody.getJobType();
@@ -139,20 +140,20 @@ public class StudentInfoController {
         //设置分页器
         int current = 1;
         int size = 20;
-        IPage<JobInfo> jobInfoIPage = new Page<>(current,size);
+        Page<JobInfo> jobInfoIPage = new Page<>(current,size);
         //设置查询条件
         QueryWrapper<JobInfo> wrapper = new QueryWrapper<>();
-        if (!companyName.equals("")) {
+        if (companyName != null && !companyName.trim().equals("")) {
             wrapper.like("company_name",companyName);
         }
-        if (!jobName.equals("")) {
+        if (jobName != null && !jobName.trim().equals("")) {
             wrapper.like("job_name",jobName);
         }
-        if (!jobType.equals("")) {
+        if (jobType != null && !jobType.trim().equals("")) {
             wrapper.eq("job_type",jobType);
         }
         //执行查询
-        List<JobInfo> jobInfos = jobInfoService.listJobsWithCompanyName(wrapper);
+        List<JobInfo> jobInfos = jobInfoService.listJobsWithCompanyName(jobInfoIPage, wrapper).getRecords();
         //返回结果
         return new RestResult()
                 .setCode(ResultCode.SUCCESS)
@@ -162,11 +163,10 @@ public class StudentInfoController {
     @RequestMapping("/getRecord")
     @ResponseBody
     public String getDeliverRecord(HttpSession session){
-        //String studentId = (String) session.getAttribute("studentId");
+//        String studentId = (String) session.getAttribute("user");
         String studentId = "2220172361";
         int current = 1;
         int size = 20;
-        //设置分页器
         IPage<DeliverRecordInfo> deliverRecordInfoIPage = new Page<>(current,size);
         //设置查询条件的wrapper
         QueryWrapper<DeliverRecordInfo> deliverRecordInfoWrapper = new QueryWrapper<>();
@@ -184,6 +184,17 @@ public class StudentInfoController {
     @ResponseBody
     public String commit(String deliverId,boolean flag){
         return deliverRecordInfoService.commitOffer(deliverId,flag);
+    }
+
+    @RequestMapping("/deliverResume")
+    @ResponseBody
+    public String deliver(String resumeId,String jobId){
+        DeliverRecordInfo info = new DeliverRecordInfo();
+        info.setJobId(jobId);
+        info.setResumeId(resumeId);
+        info.setStatus(DeliverRecordInfo.DELIVERED);
+        deliverRecordInfoService.save(info);
+        return new RestResult().setCode(ResultCode.SUCCESS).setMessage("投递成功").toString();
     }
 }
 
